@@ -1,0 +1,98 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  user_id         Int               @id @default(autoincrement())
+  username        String            @unique
+  password        String            @unique
+  email           String
+  role            String            @default("USER")
+  create_date     DateTime          @default(now())
+  last_update     DateTime          @default(now())
+  history_payment History_payment[]
+  // transaction     Transaction[]
+  portfolio       Portfolio[]
+  Transaction     Transaction[]
+}
+
+model History_payment {
+  history_payment_id Int      @id @default(autoincrement())
+  amount             Decimal  @db.Decimal(20, 2)
+  create_date        DateTime @default(now())
+  last_update        DateTime @default(now())
+  userId             Int
+  user               User     @relation(fields: [userId], references: [user_id])
+}
+
+
+model Transaction {
+  transaction_id Int      @id @default(autoincrement())
+  coin_name      String
+  type           String
+  price          Decimal  @db.Decimal(20, 2)
+  quantity       Int
+  fee            Decimal  @db.Decimal(20, 2)
+  image_coin     String?
+  create_date    DateTime @default(now())
+  last_update    DateTime @default(now())
+  status         Status
+  user           User     @relation(fields: [user_id], references: [user_id])
+  user_id        Int  
+}
+
+model Portfolio {
+  portfolio_id           Int       @id @default(autoincrement())
+  average_purchase_price Decimal   @db.Decimal(20, 2)
+  quantity               Decimal   @db.Decimal(20, 5)
+  profit_or_loss         Decimal   @db.Decimal(20, 5)
+  weight                 Decimal   @db.Decimal(20, 5)
+  create_date            DateTime  @default(now())
+  last_update            DateTime  @default(now())
+  user_id                Int
+  user                   User      @relation(fields: [user_id], references: [user_id])
+  coin_name              String
+  coinList               Coin_list @relation(fields: [coin_name], references: [coin_name])
+}
+
+model Coin_list {
+  coin_list_id Int         @id @default(autoincrement())
+  coin_name    String      @unique
+  price        Decimal     @db.Decimal(20, 2)
+  quantity     Decimal     @db.Decimal(20, 2)
+  fee          Decimal     @db.Decimal(20, 2)
+  image_coin   String?
+  type_coin    TypeCoin
+  status       CoinStatus
+  create_date  DateTime    @default(now())
+  last_update  DateTime    @default(now())
+  portfolio    Portfolio[]
+}
+
+enum CoinStatus {
+  Active
+  Inactive
+}
+
+enum TypeCoin {
+  Stablecoin
+  Crypto
+}
+
+enum TypeStatus {
+  Buy
+  Sell
+}
+
+enum Status {
+  ACTIVE
+  INACTIVE
+}
