@@ -1,8 +1,8 @@
 const { transactionSchema } = require("../validators/transaction-validator");
-const { portfolioSchema } = require("../validators/portfolio-validator");
 const prisma = require("../models/prisma");
 const constantFee = require("../util/constant/fee")
 const constantStatus = require("../util/constant/status")
+const axios = require('axios');
 
 
 exports.create = async (req, res, next) => {
@@ -44,7 +44,9 @@ exports.create = async (req, res, next) => {
             const averagePurchasePrice = (value?.price * value?.quantity)/(value?.quantity)
 
             // Hrad Code market price 
-            const marketPrice = 1200 * value?.quantity
+            const getDataMarketsPriceFromApi = await axios.get('https://api.coincap.io/v2/assets');
+            const findSymbolMarkets = getDataMarketsPriceFromApi.data.data.find(item => item.symbol === value?.coin_name); 
+            const marketPrice = parseFloat(findSymbolMarkets?.priceUsd) * value?.quantity
             const totalInvestments = (value?.price * value?.quantity)
 
             const profitOrLoss = ((totalInvestments/marketPrice)-1)
@@ -128,7 +130,7 @@ exports.update = async (req, res, next) => {
             }
         })
 
-        if(checkPortfolioRelationship != null){
+        if(checkPortfolioRelationship != null && value?.type === constantStatus.BUY){
 
             const findTransactionByCoinName = await prisma.transaction.findMany({
                 where: {
@@ -138,8 +140,10 @@ exports.update = async (req, res, next) => {
 
             const totalInvestment = totalInvestments(findTransactionByCoinName)
 
-            // Hrad Code market price 
-            const marketPrice = totalMarketPrice(1200, findTransactionByCoinName)
+            // market price 
+            const getDataMarketsPriceFromApi = await axios.get('https://api.coincap.io/v2/assets');
+            const findSymbolMarkets = getDataMarketsPriceFromApi.data.data.find(item => item.symbol === value?.coin_name); 
+            const marketPrice = totalMarketPrice(parseFloat(findSymbolMarkets?.priceUsd), findTransactionByCoinName)
             const profitOrLoss = ((totalInvestment/marketPrice)-1)
 
             // Calculate weight
@@ -176,8 +180,99 @@ exports.update = async (req, res, next) => {
                     ]
                 }
             });
-            
+        }else if(checkPortfolioRelationship != null && value?.type === constantStatus.SELL){ 
 
+            // find transaction user = 1 and type buy and coin_name = 'BNB'
+            const totalInvestmentsHold = await prisma.transaction.findMany({
+                where: {
+                    AND: [{coin_name: value?.coin_name},{status: constantStatus?.ACTIVE}, {user_id: userId}, {type: constantStatus.BUY}]
+                }
+            })
+            const investmentsSellNow = (value?.price * value?.quantity)
+            const totalInvestmentsSell = (totalInvestments(totalInvestmentsHold) - investmentsSellNow)
+
+            // calculateMarkets price
+            const getDataMarketsPriceFromApi = await axios.get('https://api.coincap.io/v2/assets');
+            const findSymbolMarkets = getDataMarketsPriceFromApi.data.data.find(item => item.symbol === value?.coin_name);
+            const sumQuantity = sumQuantitys(totalInvestmentsHold)
+            const marketPrice = parseFloat(findSymbolMarkets?.priceUsd) * (sumQuantity - value?.quantity)
+
+            const profitOrLoss = ((totalInvestmentsSell/marketPrice)-1)
+
+            // find weight sell
+            const findTotalinvestments = await prisma.transaction.findMany({
+                where: {
+                    NOT: [{coin_name: value?.coin_name},{status: constantStatus?.ACTIVE}, {user_id: userId}]
+                }
+            })
+            const totalInvestmentTypeBuy = totalInvestments(findTotalinvestments)
+            const sumTotalInvestmentsPortfolio = (totalInvestmentTypeBuy + totalInvestmentsSell)
+            const weight =  (sumTotalInvestmentsPortfolio/totalInvestmentsSell)
+
+            const finalQuantity = (sumQuantity - value?.quantity)
+            const averagePurchasePrice = (totalInvestmentsSell/totalInvestmentsSell)
+
+            if(finalQuantity != 0){
+                await prisma.portfolio.update({
+                    data: {
+                        weight: weight,
+                        average_purchase_price: averagePurchasePrice,
+                        profit_or_loss: profitOrLoss,
+                        quantity: finalQuantity,
+                    },
+                    where: {
+                        portfolio_id: checkPortfolioRelationship.portfolio_id,
+                        AND: [
+                            { user_id: userId },
+                            { coin_name: value?.coin_name }
+                        ]
+                    }
+                });
+
+                console.log("Updated Successfully ! ");
+            }else{
+
+                const allTransaction = await prisma.transaction.findMany({
+                    where: {
+                        AND: [{coin_name: value?.coin_name},
+                            {status: constantStatus?.ACTIVE}, 
+                            {user_id: userId}
+                        ]
+                    }
+                })
+                
+                await allTransaction.map((datas => {
+                    prisma.transaction.update({ 
+                        data: {
+                            status: constantStatus?.INACTIVE
+                        },
+                        where: {
+                            transaction_id: datas?.transaction_id,
+                            AND: [
+                                { user_id: userId },
+                                { coin_name: value?.coin_name }
+                            ]
+                        }
+                    })
+                }))
+                
+                await prisma.portfolio.update({
+                    data: {
+                        weight: weight,
+                        average_purchase_price: averagePurchasePrice,
+                        profit_or_loss: profitOrLoss,
+                        quantity: finalQuantity,
+                    },
+                    where: {
+                        portfolio_id: checkPortfolioRelationship.portfolio_id,
+                        AND: [
+                            { user_id: userId },
+                            { coin_name: value?.coin_name }
+                        ]
+                    }
+                });
+                console.log("Updated Successfully ! ");
+            }
         }else{
             next(error);
             res.status(404)
@@ -229,3 +324,4 @@ const sumQuantitys = (dataFromTransaction) => {
     }, 0)
     return calculateQuantity
 }
+
