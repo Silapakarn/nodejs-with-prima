@@ -7,6 +7,7 @@ const notFoundMiddleWare = require('./middlewares/not-found')
 const errorMiddleware = require('./middlewares/error')
 const authRoute = require('./routes/auth-route')
 const transactionRoute = require('./routes/transaction-route')
+const depositRoute = require('./routes/deposit-route')
 
 const app = express()
 
@@ -16,6 +17,7 @@ app.use(express.json())
 
 app.use('/auth', authRoute)
 app.use('/transaction', transactionRoute)
+app.use('/deposit', depositRoute)
 
 
 app.use(notFoundMiddleWare)

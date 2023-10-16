@@ -43,15 +43,16 @@ exports.create = async (req, res, next) => {
             // new averagePurchasePrice
             const averagePurchasePrice = (value?.price * value?.quantity)/(value?.quantity)
 
-            // Hrad Code market price 
+            // market price 
             const getDataMarketsPriceFromApi = await axios.get('https://api.coincap.io/v2/assets');
             const findSymbolMarkets = getDataMarketsPriceFromApi.data.data.find(item => item.symbol === value?.coin_name); 
-            const marketPrice = parseFloat(findSymbolMarkets?.priceUsd) * value?.quantity
+            // const marketPrice = parseFloat(findSymbolMarkets?.priceUsd) * value?.quantity
+            const marketPrice = 1000 * value?.quantity
             const totalInvestments = (value?.price * value?.quantity)
 
             const profitOrLoss = ((totalInvestments/marketPrice)-1)
 
-            // Calculate weight
+            // Calculate Weight
             const findTransactionByUserId = await prisma.transaction.findMany({
                 where: {
                     AND: [{status: constantStatus?.ACTIVE}, {user_id: userId}]
@@ -143,7 +144,8 @@ exports.update = async (req, res, next) => {
             // market price 
             const getDataMarketsPriceFromApi = await axios.get('https://api.coincap.io/v2/assets');
             const findSymbolMarkets = getDataMarketsPriceFromApi.data.data.find(item => item.symbol === value?.coin_name); 
-            const marketPrice = totalMarketPrice(parseFloat(findSymbolMarkets?.priceUsd), findTransactionByCoinName)
+            // const marketPrice = totalMarketPrice(parseFloat(findSymbolMarkets?.priceUsd), findTransactionByCoinName)
+            const marketPrice = 1000 * value?.quantity
             const profitOrLoss = ((totalInvestment/marketPrice)-1)
 
             // Calculate weight
@@ -195,8 +197,8 @@ exports.update = async (req, res, next) => {
             const getDataMarketsPriceFromApi = await axios.get('https://api.coincap.io/v2/assets');
             const findSymbolMarkets = getDataMarketsPriceFromApi.data.data.find(item => item.symbol === value?.coin_name);
             const sumQuantity = sumQuantitys(totalInvestmentsHold)
-            const marketPrice = parseFloat(findSymbolMarkets?.priceUsd) * (sumQuantity - value?.quantity)
-
+            // const marketPrice = parseFloat(findSymbolMarkets?.priceUsd) * (sumQuantity - value?.quantity)
+            const marketPrice = 900 * value?.quantity
             const profitOrLoss = ((totalInvestmentsSell/marketPrice)-1)
 
             // find weight sell
@@ -240,7 +242,7 @@ exports.update = async (req, res, next) => {
                         ]
                     }
                 })
-                
+
                 await allTransaction.map((datas => {
                     prisma.transaction.update({ 
                         data: {

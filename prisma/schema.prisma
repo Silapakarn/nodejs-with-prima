@@ -29,8 +29,8 @@ model History_payment {
   amount             Decimal  @db.Decimal(20, 2)
   create_date        DateTime @default(now())
   last_update        DateTime @default(now())
-  userId             Int
-  user               User     @relation(fields: [userId], references: [user_id])
+  user_id             Int
+  user               User     @relation(fields: [user_id], references: [user_id])
 }
 
 
