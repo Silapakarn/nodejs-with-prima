@@ -46,8 +46,7 @@ exports.create = async (req, res, next) => {
             // market price 
             const getDataMarketsPriceFromApi = await axios.get('https://api.coincap.io/v2/assets');
             const findSymbolMarkets = getDataMarketsPriceFromApi.data.data.find(item => item.symbol === value?.coin_name); 
-            // const marketPrice = parseFloat(findSymbolMarkets?.priceUsd) * value?.quantity
-            const marketPrice = 1000 * value?.quantity
+            const marketPrice = (parseFloat(findSymbolMarkets?.priceUsd) * value?.quantity)
             const totalInvestments = (value?.price * value?.quantity)
 
             const profitOrLoss = ((totalInvestments/marketPrice)-1)
@@ -73,7 +72,7 @@ exports.create = async (req, res, next) => {
                 return sum + investment;
             }, 0)
             
-            const weight = sumInvestmentsByCoinName/sumInvestmentByUserId
+            const weight = (sumInvestmentsByCoinName/sumInvestmentByUserId)
 
 
             let bodyNewCoinInPortfolio = {
@@ -138,14 +137,13 @@ exports.update = async (req, res, next) => {
                     AND: [{coin_name: value?.coin_name},{status: constantStatus?.ACTIVE}, {user_id: userId}]
                 }
             })
-
+            const sumQuantity = sumQuantitys(findTransactionByCoinName)
             const totalInvestment = totalInvestments(findTransactionByCoinName)
 
             // market price 
             const getDataMarketsPriceFromApi = await axios.get('https://api.coincap.io/v2/assets');
             const findSymbolMarkets = getDataMarketsPriceFromApi.data.data.find(item => item.symbol === value?.coin_name); 
-            // const marketPrice = totalMarketPrice(parseFloat(findSymbolMarkets?.priceUsd), findTransactionByCoinName)
-            const marketPrice = 1000 * value?.quantity
+            const marketPrice = (parseFloat(findSymbolMarkets?.priceUsd) * sumQuantity)
             const profitOrLoss = ((totalInvestment/marketPrice)-1)
 
             // Calculate weight
@@ -159,7 +157,7 @@ exports.update = async (req, res, next) => {
                 return sum + investment;
             }, 0)
             const averagePurchasePrice = averagePurchasePrices(totalInvestment, findTransactionByCoinName)
-            const sumQuantity = sumQuantitys(findTransactionByCoinName)
+           
             const sumInvestmentsByCoinName = findTransactionByCoinName.reduce((sum, data) => {
                 const investment = data.price * data.quantity;
                 return sum + investment;
@@ -192,27 +190,27 @@ exports.update = async (req, res, next) => {
             })
             const investmentsSellNow = (value?.price * value?.quantity)
             const totalInvestmentsSell = (totalInvestments(totalInvestmentsHold) - investmentsSellNow)
+            const sumQuantity = sumQuantitys(totalInvestmentsHold)
 
             // calculateMarkets price
             const getDataMarketsPriceFromApi = await axios.get('https://api.coincap.io/v2/assets');
-            const findSymbolMarkets = getDataMarketsPriceFromApi.data.data.find(item => item.symbol === value?.coin_name);
-            const sumQuantity = sumQuantitys(totalInvestmentsHold)
-            // const marketPrice = parseFloat(findSymbolMarkets?.priceUsd) * (sumQuantity - value?.quantity)
-            const marketPrice = 900 * value?.quantity
+            const findSymbolMarkets = getDataMarketsPriceFromApi.data.data.find(item => item.symbol === value?.coin_name);            
+            const marketPrice = ((parseFloat(findSymbolMarkets?.priceUsd)) * (sumQuantity - value?.quantity))
             const profitOrLoss = ((totalInvestmentsSell/marketPrice)-1)
 
             // find weight sell
             const findTotalinvestments = await prisma.transaction.findMany({
                 where: {
-                    NOT: [{coin_name: value?.coin_name},{status: constantStatus?.ACTIVE}, {user_id: userId}]
+                    NOT : [{coin_name: value?.coin_name}],
+                    AND : [{status: constantStatus?.ACTIVE}, {user_id: userId}, {type: constantStatus.BUY}]
                 }
             })
             const totalInvestmentTypeBuy = totalInvestments(findTotalinvestments)
             const sumTotalInvestmentsPortfolio = (totalInvestmentTypeBuy + totalInvestmentsSell)
-            const weight =  (sumTotalInvestmentsPortfolio/totalInvestmentsSell)
+            const weight =  (totalInvestmentsSell/sumTotalInvestmentsPortfolio)
 
             const finalQuantity = (sumQuantity - value?.quantity)
-            const averagePurchasePrice = (totalInvestmentsSell/totalInvestmentsSell)
+            const averagePurchasePrice = (totalInvestmentsSell/(sumQuantity - value?.quantity))
 
             if(finalQuantity != 0){
                 await prisma.portfolio.update({
@@ -302,6 +300,7 @@ const totalInvestments = ( dataFromTransaction ) => {
     }, 0)
     return calculateInvestment;
 } 
+ 
 
 const totalMarketPrice = ( marketPrice, dataFromTransaction) => {
     const calculateMarketPrice = dataFromTransaction.reduce((sum, data) => {
